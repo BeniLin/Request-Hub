@@ -1,0 +1,9 @@
+# Windows 上 Git 預設會把換行轉成 CRLF，bash 腳本遇到 CRLF 會執行失敗
+# 這裡強制指定各類檔案的換行格式
+* text=auto
+*.sh   text eol=lf
+*.ps1  text eol=crlf
+*.cmd  text eol=crlf
+*.md   text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf

@@ -1,0 +1,10 @@
+# 個人設定與金鑰，絕對不要 commit
+.claude/settings.local.json
+.env
+.env.*
+*.local.*
+
+# 系統產生的檔案
+.DS_Store
+Thumbs.db
+desktop.ini

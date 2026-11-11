@@ -1,0 +1,42 @@
+{
+  "enabledMcpjsonServers": ["jira"],
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/read-spec.sh:*)",
+      "Bash(bash scripts/read-pr.sh:*)",
+      "mcp__jira__getAccessibleAtlassianResources",
+      "mcp__jira__getVisibleJiraProjects",
+      "mcp__jira__searchJiraIssuesUsingJql",
+      "mcp__jira__getJiraIssue",
+      "mcp__jira__getTransitionsForJiraIssue",
+      "mcp__jira__lookupJiraAccountId"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr close:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh repo:*)",
+      "Edit(.claude/**)",
+      "Edit(scripts/**)",
+      "Edit(projects/**)",
+      "Edit(docs/**)",
+      "Edit(CLAUDE.md)",
+      "Edit(.mcp.json)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && (git pull --ff-only --quiet >/dev/null 2>&1 && echo '需求工作區已更新到最新版。' || echo '注意：需求工作區自動更新失敗，請提醒使用者手動執行 git pull，確認規則是最新版。')"
+          }
+        ]
+      }
+    ]
+  }
+}
