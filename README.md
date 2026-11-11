@@ -55,12 +55,14 @@
 
 ### 2. 填入專案資訊
 
-- `projects/registry.csv`：每個專案一行
-  - `repo`：GitHub 上的 `org/repo`
-  - `branch`：主分支名稱
-  - `specs_dir`：規格資料夾
-  - `read_dirs`：允許 Claude 讀取的資料夾，用分號分隔
-- `projects/<KEY>.md`：複製 `projects/_TEMPLATE.md` 填寫，`SHOP.md` 是範例，請刪除或改寫
+雙擊根目錄的 `add-project.cmd`，依問答輸入專案資訊，會自動寫入：
+
+- `projects/registry.csv`：專案清單（Key、repo、分支、可讀取的資料夾）
+- `projects/<KEY>.md`：專案說明（簡介、領域名詞、Jira 設定、審查人等）
+
+工具會自動偵測 repo 的主分支、檢查是否有 `INDEX.md`，第一次執行時也會詢問是否刪除範本內建的 `SHOP` 範例。
+
+也可以手動編輯：`registry.csv` 請用記事本或 VS Code 開啟，**不要用 Excel**，`.md` 可參考 `projects/_TEMPLATE.md`。
 
 ### 3. 各專案 repo
 
@@ -97,7 +99,9 @@
 
 ## 管理員：日常維護
 
-**新增專案**：在 `registry.csv` 加一行、新增 `projects/<KEY>.md`、在該專案 repo 建立 `specs/INDEX.md`。
+**新增專案**：執行 `add-project.cmd`，並在該專案 repo 建立 `specs/INDEX.md`，最後 commit 並推上去。
+
+**修改專案設定**：小修改直接編輯 `projects/<KEY>.md`；要改 repo、分支等基本資訊，重新執行 `add-project.cmd` 輸入同一個 Key（注意：會整份覆蓋 `.md`，原本手動補充的內容需重新輸入）。
 
 **修改 Skill**：直接修改 `.claude/skills/` 下的檔案並 commit，成員下次開啟時會自動更新。
 
@@ -110,6 +114,7 @@
 ├── CLAUDE.md                  每次對話都會載入的規則
 ├── README.md
 ├── setup.cmd                  Windows 初始設定（雙擊執行）
+├── add-project.cmd            新增／更新專案設定（雙擊執行）
 ├── .mcp.json                  Jira MCP 連線設定
 ├── .claude/
 │   ├── settings.json          權限、自動更新
@@ -131,5 +136,6 @@
     ├── read-spec.sh           唯讀：讀取專案文件
     ├── read-pr.sh             唯讀：讀取 PR 資訊
     ├── setup.ps1              Windows 設定腳本
+    ├── add-project.ps1        新增專案工具
     └── setup.sh               Mac / Linux 設定腳本
 ```
