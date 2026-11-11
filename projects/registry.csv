@@ -1,1 +1,2 @@
 key,name,repo,branch,specs_dir,read_dirs
+BRAIN,IDEA整合系統,BeniLin/Personal_Brain,main,specs,specs;docs;changes
