@@ -24,8 +24,8 @@
 - **Subtask 議題類型**：Subtask
 - **元件（Component）**：無
 - **標籤**：`ai-req`
-- **自訂欄位「處理中」**：`customfield_10049`
-- **自訂欄位「退回次數」**：`customfield_10048`
+- **自訂欄位「處理中」**：`customfield_10049`（建單時不填）
+- **自訂欄位「退回次數」**：`customfield_10048`（必填，建單時填 0）
 
 ## 審查人
 

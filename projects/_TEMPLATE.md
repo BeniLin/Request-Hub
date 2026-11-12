@@ -28,8 +28,8 @@
 - **Subtask 議題類型**：Subtask
 - **元件（Component）**：<可選值，例如 前台、後台、API>
 - **標籤**：`ai-req`
-- **自訂欄位「處理中」**：`customfield_XXXXX`
-- **自訂欄位「退回次數」**：`customfield_XXXXX`
+- **自訂欄位「處理中」**：`customfield_XXXXX`（建單時不填）
+- **自訂欄位「退回次數」**：`customfield_XXXXX`（必填，建單時填 0）
 
 ## 審查人
 
