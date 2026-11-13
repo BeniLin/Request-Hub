@@ -64,15 +64,30 @@
 
 也可以手動編輯：`registry.csv` 請用記事本或 VS Code 開啟，**不要用 Excel**，`.md` 可參考 `projects/_TEMPLATE.md`。
 
-### 3. 各專案 repo
+### 3. 各專案 repo：規格初始化
 
-- 在每個專案建立 `specs/INDEX.md`，範本見 `docs/spec-index-template.md`
-- 分支命名規則：`feature/<單號>`（審查 Skill 依此找分支）
+每個專案第一次接上流程時，需要建立 `specs/INDEX.md`。專案很大或沒有文件時，使用 `spec-init` skill 協助：
+
+1. 雙擊 `install-admin-skills.cmd`，把 skill 安裝到個人的 Claude 設定（只需做一次），然後重新開啟 Claude Desktop
+2. 在 Claude Desktop 的 Code 分頁**打開專案 repo**（不是這個工作區）
+3. 輸入「初始化規格」
+4. Claude 會依序：盤點 repo → 請你確認功能領域與處理範圍 → 建立索引 → （選擇性）逐個領域從程式碼反推現況規格 → 推送分支並開 PR
+
+處理範圍有兩種：
+
+- **只建索引**：快速完成，沒有文件的功能會列在「尚未文件化」
+- **索引 + 反推現況規格**：從程式碼整理出目前的行為，建議只挑修改最頻繁的幾個領域
+
+大型專案可以分多次進行，進度記錄在 `specs/.init-progress.md`，下次輸入「初始化規格」會自動接續。反推出來的規格會標示「現況反推，待確認」，請熟悉該功能的人確認後移除標記。
+
+專案文件不多的話，也可以直接參考 `docs/spec-index-template.md` 手寫。
+
+另外，分支命名規則為 `feature/<單號>`（審查 Skill 依此找分支）。
 
 ### 4. Jira
 
 - 五個專案共用同一個 Workflow Scheme，狀態名稱與 `docs/workflow.md` 一致
-- **Workflow 的初始狀態必須是「待寫規格」**，因為建單後不會轉換狀態
+- **Workflow 的初始狀態必須是「待撰寫規格」**，因為建單後不會轉換狀態
 - 建立自訂欄位「處理中」與「退回次數」，把欄位 ID 填進各專案的 `projects/<KEY>.md`
 - 確認 Atlassian 組織已允許 Rovo MCP 連線
 
@@ -115,6 +130,12 @@
 ├── README.md
 ├── setup.cmd                  Windows 初始設定（雙擊執行）
 ├── add-project.cmd            新增／更新專案設定（雙擊執行）
+├── install-admin-skills.cmd   安裝管理員用的 skill 到個人設定
+├── admin-skills/
+│   └── spec-init/             規格初始化（在專案 repo 中使用）
+├── automation-skills/         由 Routine 自動執行的 skill（不是給對話用的）
+│   ├── README.md              Routine 設定方式
+│   └── jira-spec-writer/      步驟 3：撰寫規格（A → B）
 ├── .mcp.json                  Jira MCP 連線設定
 ├── .claude/
 │   ├── settings.json          權限、自動更新
