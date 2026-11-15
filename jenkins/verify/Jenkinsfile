@@ -1,0 +1,81 @@
+// 步驟 8：驗證（E 待驗證 → F 待審查，或退回 C 待實作）
+//
+// 這個 Job 不負責部署。它呼叫專案自己的部署 Job 把分支跑起來，再對著網址執行測試。
+// 參數與排程都設定在 Job 上，這裡不寫死任何專案或環境的值。設定方式見 jenkins/README.md。
+pipeline {
+  agent any
+  options {
+    disableConcurrentBuilds()
+    timeout(time: 180, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '60'))
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        script {
+          checkout scm
+          for (k in ['JIRA_BASE_URL', 'PROJECT_KEY', 'PROJECT_REPO', 'BASE_BRANCH', 'DEPLOY_JOB', 'E2E_BASE_URL']) {
+            if (!params[k]) { error "這個 Job 缺少參數：${k}" }
+            env."${k}" = params[k]
+          }
+          env.DEPLOY_BRANCH_PARAM = params.DEPLOY_BRANCH_PARAM ?: 'BRANCH'
+          env.MAX_TICKETS = params.MAX_TICKETS ?: '2'
+          if (params.E2E_IMAGE) { env.E2E_IMAGE = params.E2E_IMAGE }
+        }
+      }
+    }
+    stage('Verify') {
+      steps {
+        script {
+          def creds = [
+            usernamePassword(credentialsId: 'jira-api', usernameVariable: 'JIRA_USER', passwordVariable: 'JIRA_TOKEN'),
+            usernamePassword(credentialsId: 'github-bot', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')
+          ]
+          if (params.E2E_ENV_CRED) {
+            creds << file(credentialsId: params.E2E_ENV_CRED, variable: 'E2E_ENV_FILE')
+          }
+          withCredentials(creds) {
+            def out = sh(script: 'bash jenkins/verify/run.sh list', returnStdout: true).trim()
+            def tickets = out ? out.split('\n').collect { it.trim() }.findAll { it ==~ /[A-Z][A-Z0-9_]*-\d+/ } : []
+            if (!tickets) {
+              echo '本次無待驗證的單'
+              return
+            }
+            echo "本次處理：${tickets.join(', ')}"
+            for (int i = 0; i < tickets.size(); i++) {
+              def key = tickets[i]
+              try {
+                def rc = sh(script: "bash jenkins/verify/run.sh prepare ${key}", returnStatus: true)
+                if (rc == 0) {
+                  def dep = build(job: env.DEPLOY_JOB, propagate: false,
+                                  parameters: [string(name: env.DEPLOY_BRANCH_PARAM, value: "feature/${key}")])
+                  if (dep.result == 'SUCCESS') {
+                    sh "bash jenkins/verify/run.sh test ${key}"
+                  } else {
+                    sh "bash jenkins/verify/run.sh deploy-failed ${key} '${dep.absoluteUrl}'"
+                  }
+                } else if (rc != 10) {
+                  error "${key}：準備階段發生未預期的錯誤（代碼 ${rc}）"
+                }
+                sh "bash jenkins/verify/run.sh report ${key}"
+              } catch (err) {
+                // 流程本身出錯（例如 Jira 連不上）：不轉換狀態，解鎖讓下次重試
+                echo "${key}：驗證流程發生錯誤，下次執行會重試：${err}"
+                sh(script: "bash jenkins/verify/run.sh unlock ${key}", returnStatus: true)
+                currentBuild.result = 'UNSTABLE'
+              }
+            }
+            // 選用：驗證結束後，把環境部署回指定的分支（借用測試環境時使用）
+            if (params.RESTORE_BRANCH) {
+              build(job: env.DEPLOY_JOB, propagate: false,
+                    parameters: [string(name: env.DEPLOY_BRANCH_PARAM, value: params.RESTORE_BRANCH)])
+            }
+          }
+        }
+      }
+    }
+  }
+  post {
+    always { archiveArtifacts artifacts: 'work/reports/**', allowEmptyArchive: true }
+  }
+}

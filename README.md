@@ -135,7 +135,10 @@
 │   └── spec-init/             規格初始化（在專案 repo 中使用）
 ├── automation-skills/         由 Routine 自動執行的 skill（不是給對話用的）
 │   ├── README.md              Routine 設定方式
-│   └── jira-spec-writer/      步驟 3：撰寫規格（A → B）
+│   ├── jira-spec-writer/      步驟 3：撰寫規格（A → B）
+│   ├── jira-test-writer/      步驟 5：撰寫測試（T → C）
+│   ├── jira-implementer/      步驟 6：實作（C → E）
+│   └── jira-changelog-writer/ 步驟 10：撰寫 ChangeLog（G → H）
 ├── .mcp.json                  Jira MCP 連線設定
 ├── .claude/
 │   ├── settings.json          權限、自動更新

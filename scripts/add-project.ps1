@@ -203,7 +203,7 @@ if ($old.specs) { $specsDefault = $old.specs }
 $specsDir = Normalize-Dir (Ask -Prompt '規格資料夾' -Default $specsDefault -Required -NoComma)
 $docsDir  = Normalize-Dir (Ask -Prompt '實作文件資料夾' -Default 'docs' -Required -NoComma)
 
-$readDefault = (@($specsDir, $docsDir, 'changes') | Select-Object -Unique) -join ';'
+$readDefault = (@($specsDir, $docsDir, 'changes', 'tests/e2e') | Select-Object -Unique) -join ';'
 if ($old.read) { $readDefault = $old.read }
 Write-Hint 'Claude 只能讀取以下資料夾，用分號 ; 分隔。'
 $readDirs = Ask -Prompt '允許讀取的資料夾' -Default $readDefault -Required -NoComma
@@ -337,8 +337,8 @@ $md.Add("- **Subtask 議題類型**：$subtaskType")
 if ($components) { $compText = ((@($components -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) -join '、') } else { $compText = '無' }
 $md.Add("- **元件（Component）**：$compText")
 $md.Add("- **標籤**：$(Join-Code $labels)")
-$md.Add("- **自訂欄位「處理中」**：$fieldLock（建單時不填）")
-$md.Add("- **自訂欄位「退回次數」**：$fieldRetry（必填，建單時填 0）")
+$md.Add("- **自訂欄位「處理中」**：$fieldLock")
+$md.Add("- **自訂欄位「退回次數」**：$fieldRetry")
 $md.Add('')
 $md.Add('## 審查人')
 $md.Add('')
