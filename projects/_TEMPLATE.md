@@ -25,7 +25,6 @@
 建單時使用以下設定值，不要自行猜測。
 
 - **主單議題類型**：Story
-- **Subtask 議題類型**：Subtask
 - **元件（Component）**：<可選值，例如 前台、後台、API>
 - **標籤**：`ai-req`
 - **自訂欄位「處理中」**：`customfield_XXXXX`（建單時不填）

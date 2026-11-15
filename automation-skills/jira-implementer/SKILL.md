@@ -1,6 +1,6 @@
 ---
 name: "jira-implementer"
-description: 自動化需求流程「步驟 6：實作」。撈取所有專案中狀態為「C 待實作」的 Jira 主單，逐張在對應 GitHub repo 的 feature/單號 分支上，依照已確認的規格與步驟 5 寫好的測試腳本撰寫程式與單元測試，完成後開立 PR、更新 subtask，把結果寫回 Jira，並轉換為「E 待驗證」。凡是排程任務、Routine，或使用者提到「處理待實作的單」「實作」「寫程式」「步驟 6」，即使沒有明講 skill 名稱，也要使用這個 skill。
+description: 自動化需求流程「步驟 6：實作」。撈取所有專案中狀態為「C 待實作」的 Jira 主單，逐張在對應 GitHub repo 的 feature/單號 分支上，依照已確認的規格與步驟 5 寫好的測試腳本撰寫程式與單元測試，完成後開立 PR，把結果寫回 Jira，並轉換為「E 待驗證」。凡是排程任務、Routine，或使用者提到「處理待實作的單」「實作」「寫程式」「步驟 6」，即使沒有明講 skill 名稱，也要使用這個 skill。
 ---
 
 # 步驟 6：實作（Jira C → E）
@@ -19,9 +19,6 @@ description: 自動化需求流程「步驟 6：實作」。撈取所有專案�
 | STATUS_FROM | `C 待實作` | 要處理的 Jira 狀態，必須與 Jira 上的名稱完全相同 |
 | STATUS_TO | `E 待驗證` | 完成後轉換到的狀態 |
 | STATUS_PROBLEM | `D 待人工處理` | 需要人回答或介入時轉換到的狀態 |
-| SUBTASK_DONE | `完成` | subtask 完成的狀態 |
-| SUBTASK_OPEN | `處理中` | subtask 進行中的狀態 |
-| SUBTASK_CANCELLED | `Z 需求作廢` | subtask 已作廢的狀態 |
 | RETRY_FIELD | `退回次數` | 記錄被退回幾次的數字欄位 |
 | MAX_RETRY | `3` | 退回次數超過這個值就不再實作，交給人 |
 | MAX_TICKETS_PER_RUN | `1` | 每次執行最多處理幾張主單。實作耗時較長，預設一次一張 |
@@ -92,7 +89,7 @@ ORDER BY priority DESC, created ASC
 
 ### 2.2 讀取單子，判斷這次的類型
 
-讀主單的描述、所有 subtask 與**所有留言**，找出最新一則決定這次工作內容的留言：
+讀主單的描述與**所有留言**，找出最新一則決定這次工作內容的留言：
 
 | 類型 | 判斷方式 | 這次要做什麼 |
 |---|---|---|
@@ -134,7 +131,7 @@ ORDER BY priority DESC, created ASC
 
 ### 2.6 實作
 
-依 subtask 逐項進行（subtask 是工作項目的劃分，不是必須各自獨立 commit）：
+依規格的規則逐條進行：
 
 - **只做規格寫的事**。規格「不做的範圍」列出的內容不要做；規格沒提到的功能、順手的重構、無關的格式調整都不要做
 - 每一條規則都要落實，包含例外與錯誤處理、權限檢查、輸入驗證。不要只做成功的情境
@@ -209,24 +206,14 @@ ORDER BY priority DESC, created ASC
 - 認為測試腳本有誤：測試的操作方式不可能成立，或斷言與 Test Case 的預期結果不一致。說明是哪一個測試、為什麼
 - 需要人提供的東西：金鑰、外部系統的設定、設計稿、決定
 
-### 2.11 更新 subtask
-
-實作完成後：
-
-- 這次完成的 subtask：轉換到 SUBTASK_DONE，並在該 subtask 留言列出相關的主要檔案
-- 被退回後重新處理時：先把與退回原因相關、已經是完成的 subtask 轉回 SUBTASK_OPEN，修正後再轉為 SUBTASK_DONE。無關的 subtask 不要動
-- 轉換一律以**目標狀態**尋找可用的轉換
-
-送出前確認：**所有 subtask 都是 SUBTASK_DONE 或 SUBTASK_CANCELLED**。還有沒完成的，代表實作不完整，回到 2.6；確定該項工作不需要做時，不要自行作廢，依 2.10 回報。
-
-### 2.12 寫回前再確認
+### 2.11 寫回前再確認
 
 重新讀取票的狀態：
 
 - 仍是 STATUS_FROM → 繼續
 - 已被改成其他狀態 → 放棄寫回：不轉換、不留完成的留言，只清空「處理中」，在報告中註明。已 push 的內容保留
 
-### 2.13 寫回 Jira
+### 2.12 寫回 Jira
 
 新增留言：
 
@@ -308,7 +295,7 @@ ORDER BY priority DESC, created ASC
 - 不寫入密碼、金鑰、token、內部網址
 - 不 push 到 `main` 或基準分支、不建立新分支、不 merge PR、不刪除分支、不 force push、不 rebase 已經推送的分支
 - 不部署，不執行會改動任何實際環境資料的指令
-- 不執行 STATUS_FROM → STATUS_TO、STATUS_FROM → STATUS_PROBLEM，以及 subtask 在 SUBTASK_OPEN 與 SUBTASK_DONE 之間以外的任何 Jira 轉換
-- 不作廢任何單子或 subtask
+- 不執行 STATUS_FROM → STATUS_TO、STATUS_FROM → STATUS_PROBLEM 以外的任何 Jira 轉換
+- 不作廢任何單子，不修改 subtask（舊的單底下可能還有，不需要理會）
 - 不修改票的描述、優先度、負責人、退回次數
 - 不修改 Request-Hub 的任何內容

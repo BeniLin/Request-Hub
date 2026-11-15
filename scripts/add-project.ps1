@@ -240,7 +240,6 @@ while ($true) {
 Write-Section '3/6 Jira 設定'
 
 $storyType   = Ask -Prompt '主單議題類型' -Default 'Story' -Required
-$subtaskType = Ask -Prompt 'Subtask 議題類型' -Default 'Subtask' -Required
 $components  = Ask -Prompt '元件（Component），用逗號分隔；沒有就直接 Enter'
 $labels      = Ask -Prompt '標籤，用逗號分隔' -Default 'ai-req'
 
@@ -333,7 +332,6 @@ $md.Add('')
 $md.Add('建單時使用以下設定值，不要自行猜測。')
 $md.Add('')
 $md.Add("- **主單議題類型**：$storyType")
-$md.Add("- **Subtask 議題類型**：$subtaskType")
 if ($components) { $compText = ((@($components -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) -join '、') } else { $compText = '無' }
 $md.Add("- **元件（Component）**：$compText")
 $md.Add("- **標籤**：$(Join-Code $labels)")

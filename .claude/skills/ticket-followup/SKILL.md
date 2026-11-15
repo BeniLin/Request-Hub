@@ -124,7 +124,7 @@ project in (<專案KEY>) AND status = "D 待人工處理" ORDER BY priority DESC
 ```
 
 2. 主單轉換到 Z
-3. 這張主單底下所有不是「完成」也不是 Z 的 subtask，逐一轉換到 Z
+3. 這張主單如果是舊的單、底下還有 subtask，把不是「完成」也不是 Z 的 subtask 逐一轉換到 Z。新的單不會有 subtask
 
 ### 5. 提醒後續
 

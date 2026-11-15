@@ -1,6 +1,6 @@
 ---
 name: jira-ticket
-description: 建立 Jira 單：依照已確認的需求摘要與拆單計畫，查重後用固定模板建立 Jira 主單、subtask 與相依連結。只有在使用者已經確認需求摘要和拆單計畫之後才使用；使用者說「開單」「建單」「寫進 Jira」時也使用這個 skill，但若需求還沒討論完整，先回到 requirement-elicitation。
+description: 建立 Jira 單：依照已確認的需求摘要與拆單計畫，查重後用固定模板建立 Jira 主單與相依連結。只有在使用者已經確認需求摘要和拆單計畫之後才使用；使用者說「開單」「建單」「寫進 Jira」時也使用這個 skill，但若需求還沒討論完整，先回到 requirement-elicitation。
 ---
 
 # 建立 Jira 單
@@ -39,8 +39,7 @@ project in (<涉及的專案KEY>) AND statusCategory != Done AND text ~ "<關鍵
 
 ### 3. 組合內容並預覽
 
-- 主單描述使用 `templates/story.md`
-- Subtask 描述使用 `templates/subtask.md`
+主單描述使用 `templates/story.md`。只建立主單，**不建立 subtask**。
 
 把**所有要建立的單子完整內容**一次顯示給使用者預覽，包含標題、議題類型、元件、標籤、描述，以及相依關係。
 
@@ -51,12 +50,11 @@ project in (<涉及的專案KEY>) AND statusCategory != Done AND text ~ "<關鍵
 使用者確認後依序建立：
 
 1. 主單
-2. 主單的 subtask（parent 設為該主單）
-3. 主單之間的相依連結（Blocks）
+2. 主單之間的相依連結（Blocks）
 
 建立後系統會再跳出確認視窗，這是正常的，請使用者確認即可。
 
-**不要轉換狀態。** 新建的主單會自動是 `A 待撰寫規格`，subtask 會自動是 `處理中`。建立後檢查主單狀態，如果不是 `A 待撰寫規格`，告訴使用者並請他通知 Jira 管理員檢查 workflow，不要自己去轉換。
+**不要轉換狀態。** 新建的主單會自動是 `A 待撰寫規格`。建立後檢查主單狀態，如果不是 `A 待撰寫規格`，告訴使用者並請他通知 Jira 管理員檢查 workflow，不要自己去轉換。
 
 ### 5. 回報結果
 
@@ -64,8 +62,7 @@ project in (<涉及的專案KEY>) AND statusCategory != Done AND text ~ "<關鍵
 
 ## 標題規則
 
-- 主單：`[<KEY>] <動詞開頭的一句話>`，例如 `[SHOP] 金卡會員結帳自動套用折扣`
-- Subtask：`<動詞開頭的一句話>`，不加前綴
+主單：`[<KEY>] <動詞開頭的一句話>`，例如 `[SHOP] 金卡會員結帳自動套用折扣`
 
 ## 失敗處理
 
