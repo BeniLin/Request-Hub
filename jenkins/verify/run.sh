@@ -13,12 +13,6 @@ STATUS_FROM="E 待驗證"
 STATUS_PASS="F 待審查"
 STATUS_FAIL="C 待實作"
 
-checkout_feature() {
-  fetch_refs
-  git -C "$REPO_DIR" checkout --quiet --force --detach "origin/feature/$1"
-  git -C "$REPO_DIR" clean -fdxq
-}
-
 # 列出要處理的單號（每行一個）。有單子時順便準備好 repo。
 cmd_list() {
   local jql list
@@ -39,9 +33,13 @@ cmd_prepare() {
   log "==== $key：開始驗證 ===="
   jira_lock "$key" "$LOCK_ID"
 
-  run_step "$r/checkout.log" checkout_feature "$key"
+  if ! git_auth -C "$REPO_DIR" ls-remote --exit-code --heads origin "feature/$key" >/dev/null 2>&1; then
+    set_reason "$key" "找不到分支 feature/$key"; exit 10
+  fi
+  # 驗證的對象是「分支加上最新的基準分支」，也就是合併後實際會上線的內容
+  run_step "$r/sync.log" sync_base_into_feature "$key"
   if (( STEP_RC != 0 )); then
-    set_reason "$key" "無法取得分支 feature/$key" "$r/checkout.log"; exit 10
+    set_reason "$key" "與 $BASE_BRANCH 合併時發生衝突，需要先同步 $BASE_BRANCH 並解決衝突" "$r/sync.log"; exit 10
   fi
   git -C "$REPO_DIR" rev-parse HEAD > "$r/sha"
 
@@ -52,6 +50,7 @@ cmd_prepare() {
   if [[ ! -d "$REPO_DIR/tests/e2e/$key" ]]; then
     set_reason "$key" "分支上找不到 tests/e2e/$key"; exit 10
   fi
+  push_feature_if_changed "$key"
 }
 
 cmd_test() {
@@ -62,7 +61,7 @@ cmd_test() {
 
 cmd_deploy_failed() {
   valid_key "$1"
-  set_reason "$1" "部署失敗，部署記錄：${2:-（無）}"
+  record_deploy_failure "$1" "${2:-}" "${3:-}"
 }
 
 # 寫回 Jira：附件、留言、轉換狀態、解鎖
@@ -100,7 +99,7 @@ case "${1:-}" in
   list)          cmd_list ;;
   prepare)       cmd_prepare "$2" ;;
   test)          cmd_test "$2" ;;
-  deploy-failed) cmd_deploy_failed "$2" "${3:-}" ;;
+  deploy-failed) cmd_deploy_failed "$2" "${3:-}" "${4:-}" ;;
   report)        cmd_report "$2" ;;
   unlock)        cmd_unlock "$2" ;;
   *) log "用法：run.sh <list|prepare|test|deploy-failed|report|unlock> [單號]"; exit 2 ;;

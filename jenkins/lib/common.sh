@@ -62,6 +62,45 @@ fetch_refs() {
   git_auth -C "$REPO_DIR" fetch --quiet --prune --tags origin '+refs/heads/*:refs/remotes/origin/*'
 }
 
+# 取得 feature/<單號>，並把最新的基準分支併進來（在本機，不推送）。
+# 驗證與合併都以「分支加上最新的基準分支」為對象：分支落後基準分支時，資料庫結構、設定檔可能對不上而無法部署。
+# 有衝突時印出衝突的檔案並回傳 1。
+sync_base_into_feature() {
+  fetch_refs
+  git -C "$REPO_DIR" checkout --quiet --force --detach "origin/feature/$1"
+  git -C "$REPO_DIR" clean -fdxq
+  if ! git -C "$REPO_DIR" merge --no-ff --no-edit -m "merge: 同步 $BASE_BRANCH 到 feature/$1" "origin/$BASE_BRANCH"; then
+    echo "與 $BASE_BRANCH 衝突的檔案："
+    git -C "$REPO_DIR" diff --name-only --diff-filter=U
+    git -C "$REPO_DIR" merge --abort
+    return 1
+  fi
+}
+
+# 同步後如果多了合併的 commit，把它推回 feature 分支，部署 Job 才拿得到
+push_feature_if_changed() {
+  if [[ "$(git -C "$REPO_DIR" rev-parse HEAD)" != "$(git -C "$REPO_DIR" rev-parse "origin/feature/$1")" ]]; then
+    git_auth -C "$REPO_DIR" push --quiet origin "HEAD:refs/heads/feature/$1"
+  fi
+}
+
+# 記錄部署失敗，並把部署 Job 的記錄（最後 200 行）存下來，讓 Jira 留言帶得出失敗原因。
+# 用法：record_deploy_failure <單號> <部署記錄網址> <部署的建置編號>
+record_deploy_failure() {
+  local key="$1" url="${2:-}" num="${3:-}" r src=""
+  r="$(report_dir "$key")"
+  if [[ -n "$num" && -n "${JENKINS_HOME:-}" && -n "${DEPLOY_JOB:-}" ]]; then
+    src="$JENKINS_HOME/jobs/${DEPLOY_JOB//\//\/jobs\/}/builds/$num/log"
+  fi
+  if [[ -n "$src" && -r "$src" ]]; then
+    # 去掉 Jenkins 寫在記錄裡的隱藏標記
+    sed -e 's/\x1b\[8m[^\x1b]*\x1b\[0m//g' "$src" | tail -n 200 > "$r/deploy.log"
+    set_reason "$key" "分支無法部署到驗證環境（部署記錄：${url:-無}）" "$r/deploy.log"
+  else
+    set_reason "$key" "分支無法部署到驗證環境（部署記錄：${url:-無}）"
+  fi
+}
+
 # 執行一個步驟並把輸出寫到 log，結果放在 STEP_RC，不會中斷腳本。
 # 必須當成獨立的一行呼叫（不要接在 if 或 || 後面），步驟內的錯誤才會被正確偵測。
 STEP_RC=0

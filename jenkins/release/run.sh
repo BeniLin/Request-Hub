@@ -48,18 +48,6 @@ cmd_list_merge() {
   return 0
 }
 
-merge_base_into_feature() {
-  fetch_refs
-  g checkout --quiet --force --detach "origin/feature/$1"
-  g clean -fdxq
-  if ! g merge --no-ff --no-edit -m "merge: 同步 $BASE_BRANCH 到 feature/$1" "origin/$BASE_BRANCH"; then
-    echo "與 $BASE_BRANCH 衝突的檔案："
-    g diff --name-only --diff-filter=U
-    g merge --abort
-    return 1
-  fi
-}
-
 # 鎖單、把最新的基準分支併進功能分支並推上去。結束代碼：0 可以部署；10 這張單失敗（原因已記錄）
 cmd_merge_prepare() {
   local key="$1" r
@@ -70,7 +58,7 @@ cmd_merge_prepare() {
   log "==== $key：準備合併 ===="
   jira_lock "$key" "$LOCK_ID"
 
-  run_step "$r/sync.log" merge_base_into_feature "$key"
+  run_step "$r/sync.log" sync_base_into_feature "$key"
   if (( STEP_RC != 0 )); then
     set_reason "$key" "與 $BASE_BRANCH 合併時發生衝突，需要重新實作以解決衝突" "$r/sync.log"; exit 10
   fi
@@ -83,8 +71,7 @@ cmd_merge_prepare() {
   if [[ ! -d "$REPO_DIR/tests/e2e/$key" ]]; then
     set_reason "$key" "分支上找不到 tests/e2e/$key"; exit 10
   fi
-  # 把同步後的分支推上去，部署 Job 才拿得到
-  git_auth -C "$REPO_DIR" push --quiet origin "HEAD:refs/heads/feature/$key"
+  push_feature_if_changed "$key"
 }
 
 merge_feature_into_base() {
@@ -258,7 +245,7 @@ case "${1:-}" in
   list-merge)      cmd_list_merge ;;
   merge-prepare)   cmd_merge_prepare "$2" ;;
   test)            valid_key "$2"; log "$2：執行自動化測試"; test_ticket "$2" ;;
-  deploy-failed)   valid_key "$2"; set_reason "$2" "部署失敗，部署記錄：${3:-（無）}" ;;
+  deploy-failed)   valid_key "$2"; record_deploy_failure "$2" "${3:-}" "${4:-}" ;;
   merge-finish)    cmd_merge_finish "$2" ;;
   release-prepare) cmd_release_prepare ;;
   release-finish)  cmd_release_finish "$2" "${3:-}" ;;

@@ -62,7 +62,7 @@ pipeline {
                     if (dep.result == 'SUCCESS') {
                       sh "bash jenkins/release/run.sh test ${key}"
                     } else {
-                      sh "bash jenkins/release/run.sh deploy-failed ${key} '${dep.absoluteUrl}'"
+                      sh "bash jenkins/release/run.sh deploy-failed ${key} '${dep.absoluteUrl}' '${dep.number}'"
                     }
                   } else if (rc != 10) {
                     error "${key}：準備階段發生未預期的錯誤（代碼 ${rc}）"
