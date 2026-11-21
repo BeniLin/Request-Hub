@@ -28,12 +28,15 @@ set_reason() {
 }
 get_reason() { cat "$REPORTS/$1/reason" 2>/dev/null || true; }
 
-# 「處理中」「退回次數」的欄位 ID（查一次後快取）
+# 「處理中」「退回次數」的欄位 ID。以傳入的單號查詢（同一個專案的單子欄位相同），查一次後快取。
+# 用法：load_field_ids <單號>
 load_field_ids() {
-  local cache="$WORK/field-ids"
+  local cache="$WORK/field-ids" lock retry
   if [[ ! -s "$cache" ]]; then
     mkdir -p "$WORK"
-    { jira_field_id "$LOCK_FIELD_NAME"; jira_field_id "$RETRY_FIELD_NAME"; } > "$cache"
+    lock="$(jira_field_id "$LOCK_FIELD_NAME" "$1")"
+    retry="$(jira_field_id "$RETRY_FIELD_NAME" "$1")"
+    printf '%s\n%s\n' "$lock" "$retry" > "$cache"
   fi
   LOCK_ID="$(sed -n 1p "$cache")"
   RETRY_ID="$(sed -n 2p "$cache")"

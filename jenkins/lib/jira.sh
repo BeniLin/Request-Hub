@@ -26,12 +26,23 @@ jira_api() {
   rm -f "$out"
 }
 
-# 依欄位名稱找出欄位 ID（例如「處理中」→ customfield_10047）
+# 依欄位名稱找出「這張單上可以編輯的」欄位 ID（例如「處理中」→ customfield_10049）。
+# Jira 允許不同的欄位使用相同的名稱，所以要以單子本身可編輯的欄位為準，不能只用名稱查全站的欄位清單。
+# 用法：jira_field_id <欄位名稱> <單號>
 jira_field_id() {
-  local id
-  id="$(jira_api GET /rest/api/3/field | jq -r --arg n "$1" '[.[] | select(.name == $n) | .id][0] // empty')"
-  [[ -n "$id" ]] || { echo "Jira 找不到名稱為「$1」的欄位" >&2; return 1; }
-  printf '%s\n' "$id"
+  local ids count
+  ids="$(jira_api GET "/rest/api/3/issue/$2/editmeta" \
+    | jq -r --arg n "$1" '.fields | to_entries[] | select(.value.name == $n) | .key')"
+  count="$(grep -c . <<<"$ids" || true)"
+  if [[ "$count" -eq 0 ]]; then
+    echo "$2 上找不到可以編輯的「$1」欄位。請確認這個欄位已經加到該議題類型的編輯畫面。" >&2
+    return 1
+  fi
+  if [[ "$count" -gt 1 ]]; then
+    echo "$2 上有 $count 個名稱都是「$1」的欄位（$(tr '\n' ' ' <<<"$ids")），無法判斷要用哪一個。請在 Jira 把多餘的欄位改名或從畫面移除。" >&2
+    return 1
+  fi
+  printf '%s\n' "$ids"
 }
 
 # 用 JQL 搜尋，每行輸出一個單號。用法：jira_search <JQL> [最多幾筆]

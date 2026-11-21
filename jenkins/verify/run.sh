@@ -26,7 +26,6 @@ cmd_list() {
   list="$(jira_search "$jql" "${MAX_TICKETS:-2}")"
   [[ -n "$list" ]] || return 0
   clone_repo >&2
-  load_field_ids
   printf '%s\n' "$list"
 }
 
@@ -36,7 +35,7 @@ cmd_prepare() {
   valid_key "$key"
   r="$(report_dir "$key")"
   rm -f "$r/reason" "$r/reason-log" "$r/sha"
-  load_field_ids
+  load_field_ids "$key"
   log "==== $key：開始驗證 ===="
   jira_lock "$key" "$LOCK_ID"
 
@@ -70,7 +69,7 @@ cmd_deploy_failed() {
 cmd_report() {
   local key="$1" cur reason
   valid_key "$key"
-  load_field_ids
+  load_field_ids "$key"
   reason="$(get_reason "$key")"
   cur="$(jira_status "$key")"
   if [[ "$cur" != "$STATUS_FROM" ]]; then
@@ -93,7 +92,7 @@ cmd_report() {
 
 cmd_unlock() {
   valid_key "$1"
-  load_field_ids
+  load_field_ids "$1"
   jira_unlock "$1" "$LOCK_ID"
 }
 

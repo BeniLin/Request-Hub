@@ -28,7 +28,6 @@ cmd_list_merge() {
   list="$(jira_search "$jql" 50)"
   [[ -n "$list" ]] || return 0
   clone_repo >&2
-  load_field_ids
   while read -r key; do
     [[ -n "$key" ]] || continue
     if ! branch_exists "$key"; then log "$key：找不到分支 feature/$key，跳過"; continue; fi
@@ -67,7 +66,7 @@ cmd_merge_prepare() {
   valid_key "$key"
   r="$(report_dir "$key")"
   rm -f "$r/reason" "$r/reason-log" "$r/sha"
-  load_field_ids
+  load_field_ids "$key"
   log "==== $key：準備合併 ===="
   jira_lock "$key" "$LOCK_ID"
 
@@ -100,7 +99,7 @@ cmd_merge_finish() {
   local key="$1" r cur reason summary
   valid_key "$key"
   r="$(report_dir "$key")"
-  load_field_ids
+  load_field_ids "$key"
   reason="$(get_reason "$key")"
   cur="$(jira_status "$key")"
   if [[ "$cur" != "$STATUS_FROM" ]]; then
@@ -161,7 +160,6 @@ cmd_release_prepare() {
   list="$(jira_search "$jql" 100)"
   [[ -n "$list" ]] || { log "沒有「$STATUS_FROM」的單"; exit 10; }
   clone_repo
-  load_field_ids
   while read -r key; do
     [[ -n "$key" ]] || continue
     if branch_exists "$key" && is_merged "$key"; then tickets+=("$key"); else log "$key：尚未合併進 $BASE_BRANCH，這次不發版（請先執行「合併」）"; fi
@@ -230,7 +228,6 @@ cmd_release_prepare() {
 # 把發版結果寫回 Jira。用法：release-finish <deployed|manual|failed> [部署記錄網址]
 cmd_release_finish() {
   local state="$1" url="${2:-}" version key cur text
-  load_field_ids
   version="$(cat "$WORK/release-version")"
   case "$state" in
     deployed) text="【已發版】版本 $version，已合併進 $RELEASE_BRANCH 並完成部署。" ;;
@@ -253,7 +250,7 @@ Jenkins：${BUILD_URL:-（本機執行）}"
 
 cmd_unlock() {
   valid_key "$1"
-  load_field_ids
+  load_field_ids "$1"
   jira_unlock "$1" "$LOCK_ID"
 }
 
