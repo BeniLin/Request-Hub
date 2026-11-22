@@ -105,7 +105,8 @@ cmd_merge_finish() {
   summary="$(jira_summary "$key")"
   merge_feature_into_base "$key" "$summary" > "$r/merge.log" 2>&1
   publish_result "$key" "【已合併】步驟 12（Jenkins）" "" \
-    "已同步最新的 $BASE_BRANCH 並重新通過測試，已合併進 $BASE_BRANCH。單子維持在「$STATUS_FROM」，執行「發版」後才會轉為已發版。"
+    "已同步最新的 $BASE_BRANCH 並重新通過測試，已合併進 $BASE_BRANCH。單子維持在「$STATUS_FROM」，執行「發版」後才會轉為已發版。" \
+    "這張單已經和最新的 $BASE_BRANCH 合在一起重新測試通過，並合併進 $BASE_BRANCH。它會留在「待發版」，等你在 Jenkins 執行發版。"
   jira_unlock "$key" "$LOCK_ID"
   log "$key：已合併進 $BASE_BRANCH"
 }

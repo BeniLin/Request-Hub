@@ -168,9 +168,10 @@ test_ticket() {
 }
 
 # 把測試結果寫到 Jira：上傳截圖與報告，新增留言。
-# 用法：publish_result <單號> <通過時的標題> <失敗時的標題> [留言最後要加的一段話]
+# 用法：publish_result <單號> <通過時的標題> <失敗時的標題> [留言最後要加的一段話] [通過時給人看的摘要]
+# 留言的第一行是標記，接著是給人看的摘要，分隔線之後才是細節。
 publish_result() {
-  local key="$1" title_ok="$2" title_fail="$3" extra="${4:-}"
+  local key="$1" title_ok="$2" title_fail="$3" extra="${4:-}" summary_ok="${5:-}"
   local r reason rlog sha passed=0 failed=0 flaky=0 skipped=0 failed_list="" shots=0 f name text
   r="$(report_dir "$key")"
   reason="$(get_reason "$key")"
@@ -183,6 +184,18 @@ publish_result() {
     flaky="$(jq '.stats.flaky // 0' "$r/results.json")"
     skipped="$(jq '.stats.skipped // 0' "$r/results.json")"
     failed_list="$(jq -r '[.. | objects | select(has("ok") and has("title") and has("tests") and .ok == false) | .title] | unique | .[]' "$r/results.json")"
+  fi
+  # 把錯誤訊息歸類：相同的訊息合併計數，讓留言看得出「為什麼」失敗，而不只是「哪些」失敗
+  local error_summary="" total=0
+  if [[ -f "$r/results.json" ]]; then
+    error_summary="$(jq -r '
+      [.. | objects | select(has("status") and has("errors") and (.status == "failed" or .status == "timedOut"))
+        | (.errors[0].message // .error.message // "（沒有錯誤訊息）")
+        | gsub("\u001b\\[[0-9;]*m"; "") | split("\n")
+        | map(select(test("\\S"))) | .[0:3] | join(" / ") | .[0:300]]
+      | group_by(.) | map({n: length, m: .[0]}) | sort_by(-.n) | .[0:6]
+      | .[] | "- \(.n) 個測試：\(.m)"' "$r/results.json" 2>/dev/null || true)"
+    total=$(( passed + failed + flaky ))
   fi
 
   # 截圖最多 60 張，檔名加上所在資料夾，避免全部同名
@@ -200,8 +213,24 @@ publish_result() {
     jira_attach "$key" "$rlog" "$(basename "$rlog" | sed 's/\.[a-z]*$//')-${sha:0:8}.log" || true
   fi
 
+  # 給人看的摘要
+  local summary
+  if [[ -z "$reason" ]]; then
+    summary="${summary_ok:-$passed 條自動測試全部通過。}"
+  elif (( total == 0 )); then
+    summary="還沒開始跑測試就停下來了：$reason。單子已退回「待實作」，會由實作步驟接手，目前不需要你處理。"
+  elif (( total >= 5 && failed * 5 >= total * 4 )); then
+    summary="$total 條自動測試有 $failed 條沒通過。幾乎全部失敗，比較像是測試環境、測試帳號或測試腳本的共同問題，不是每個功能都壞了。單子已退回「待實作」；實作步驟如果判斷不是程式的問題，會轉到「待人工處理」請你決定。"
+  else
+    summary="$total 條自動測試有 $failed 條沒通過。單子已退回「待實作」，會由實作步驟修正後再送回來驗證，目前不需要你處理。"
+  fi
+
   if [[ -z "$reason" ]]; then text="$title_ok"; else text="$title_fail"; fi
   text+="
+
+摘要：$summary
+
+----
 
 分支：feature/$key${sha:+（commit ${sha:0:8}）}
 Jenkins：${BUILD_URL:-（本機執行）}
@@ -212,6 +241,17 @@ Jenkins：${BUILD_URL:-（本機執行）}
     text+="
 
 失敗原因：$reason"
+    if [[ -n "$error_summary" ]]; then
+      text+="
+
+錯誤訊息（相同的合併計算）：
+$error_summary"
+    fi
+    if (( total >= 5 && failed * 5 >= total * 4 )); then
+      text+="
+
+注意：絕大多數的測試都失敗了。這通常代表共同的原因（測試帳號無法登入、網址或連接埠不對、測試環境缺少前置資料），不是每個功能各自有問題。請先看上面出現最多次的錯誤訊息和截圖。"
+    fi
     if [[ -n "$failed_list" ]]; then
       text+="
 

@@ -76,8 +76,12 @@ cmd_report() {
     jira_unlock "$key" "$LOCK_ID"
     return 0
   fi
-  publish_result "$key" "【驗證通過】步驟 8（Jenkins 自動驗證）" "【驗證失敗】步驟 8（Jenkins 自動驗證）" \
-    "標示為「人工驗證」的 Test Case 沒有自動執行，審查時請依 tests/e2e/$key/README.md 的對照表操作確認。"
+  local extra=""
+  if [[ -z "$reason" ]]; then
+    extra="標示為「人工驗證」的 Test Case 沒有自動執行，審查時請依 tests/e2e/$key/README.md 的對照表操作確認。"
+  fi
+  publish_result "$key" "【驗證通過】步驟 8（Jenkins 自動驗證）" "【驗證失敗】步驟 8（Jenkins 自動驗證）" "$extra" \
+    "自動測試全部通過，截圖已附在這張單上。接下來請你審查畫面與程式，並完成標示為人工驗證的項目（在 Request-Hub 說「幫我審 $key」）。"
   if [[ -z "$reason" ]]; then
     jira_transition_to "$key" "$STATUS_PASS"
     log "$key：驗證通過 → $STATUS_PASS"
