@@ -215,8 +215,12 @@ cmd_release_prepare() {
 
 # 把發版結果寫回 Jira。用法：release-finish <deployed|manual|failed> [部署記錄網址]
 cmd_release_finish() {
-  local state="$1" url="${2:-}" version key cur text
+  local state="$1" url="${2:-}" version key cur text vid=""
   version="$(cat "$WORK/release-version")"
+  # 在 Jira 建立這個版本，稍後填進每張單的「修正版本」。失敗不影響發版
+  if [[ "$state" != "failed" && "$version" == v* ]]; then
+    vid="$(jira_ensure_version "$PROJECT_KEY" "$version")" || { vid=""; log "無法在 Jira 建立版本 $version，單子上不會標記版號（留言中仍有版號）"; }
+  fi
   case "$state" in
     deployed) text="【已發版】版本 $version，已合併進 $RELEASE_BRANCH 並完成部署。" ;;
     manual)   text="【已發版】版本 $version 已建立（已合併進 $RELEASE_BRANCH 並標記版號）。這個流程沒有設定正式環境的部署 Job，請自行部署。" ;;
@@ -230,6 +234,9 @@ cmd_release_finish() {
     jira_comment "$key" "$text
 Jenkins：${BUILD_URL:-（本機執行）}"
     if [[ "$state" != "failed" ]]; then
+      if [[ -n "$vid" ]]; then
+        jira_add_fix_version "$key" "$vid" || log "$key：無法填入「修正版本」（這個欄位可能不在單子的畫面上）"
+      fi
       jira_transition_to "$key" "$STATUS_RELEASED"
       log "$key → $STATUS_RELEASED"
     fi

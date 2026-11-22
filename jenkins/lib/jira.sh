@@ -70,6 +70,28 @@ jira_set_field() {
 }
 
 # 鎖單：把日期時間欄位寫成現在
+# 確保 Jira 專案裡有這個版本（「發行」頁面上的版本），並標記為已發行。印出版本的 ID。
+# 用法：jira_ensure_version <專案 Key> <版本名稱>
+jira_ensure_version() {
+  local project="$1" name="$2" id pid body
+  id="$(jira_api GET "/rest/api/3/project/$project/versions" | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' | head -n 1)"
+  if [[ -z "$id" ]]; then
+    pid="$(jira_api GET "/rest/api/3/project/$project" | jq -r '.id')"
+    body="$(jq -n --arg n "$name" --argjson p "$pid" --arg d "$(date +%Y-%m-%d)" \
+      '{name: $n, projectId: $p, released: true, releaseDate: $d}')"
+    id="$(jira_api POST "/rest/api/3/version" "$body" | jq -r '.id')"
+  fi
+  [[ -n "$id" && "$id" != "null" ]] || return 1
+  printf '%s' "$id"
+}
+
+# 把版本填進單子的「修正版本」欄位（保留原本已經填的版本）
+jira_add_fix_version() {
+  local body
+  body="$(jq -n --arg id "$2" '{update: {fixVersions: [{add: {id: $id}}]}}')"
+  jira_api PUT "/rest/api/3/issue/$1" "$body" >/dev/null
+}
+
 jira_lock() {
   local now
   now="$(date +%Y-%m-%dT%H:%M:%S.000%z)"
