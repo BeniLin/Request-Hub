@@ -167,6 +167,47 @@ test_ticket() {
   fi
 }
 
+# 把截圖與測試報告上傳到雲端硬碟，成功時印出資料夾的網址。
+# 需要：Job 參數 ARTIFACT_REMOTE（rclone 的目的地，例如 gdrive:AutoDeveloper/ZHC）、
+#       憑證檔 RCLONE_CONFIG_FILE（rclone 的設定檔）、Jenkins 上安裝了 rclone。
+# 沒有設定時回傳 1（不算錯誤）。上傳後的資料夾：<目的地>/<單號>/<時間>-<commit>/
+upload_artifacts() {
+  local key="$1" r="$2" sha="${3:-}" conf stage name parent f id
+  [[ -n "${ARTIFACT_REMOTE:-}" && -n "${RCLONE_CONFIG_FILE:-}" && -f "${RCLONE_CONFIG_FILE:-}" ]] || return 1
+  command -v rclone >/dev/null 2>&1 || { log "已設定 ARTIFACT_REMOTE，但 Jenkins 上找不到 rclone"; return 1; }
+  [[ -d "$r/test-results" || -d "$r/playwright-report" ]] || return 1
+
+  # rclone 會把更新後的權杖寫回設定檔，所以用一份可以寫入的副本
+  conf="$WORK/rclone.conf"
+  cp "$RCLONE_CONFIG_FILE" "$conf" && chmod 600 "$conf"
+  stage="$r/upload"
+  rm -rf "$stage" && mkdir -p "$stage/screenshots"
+  if [[ -d "$r/test-results" ]]; then
+    while IFS= read -r -d '' f; do
+      cp "$f" "$stage/screenshots/$(basename "$(dirname "$f")")-$(basename "$f")"
+    done < <(find "$r/test-results" -name '*.png' -print0)
+  fi
+  if [[ -d "$r/playwright-report" ]]; then
+    tar -czf "$stage/playwright-report.tar.gz" -C "$r" playwright-report
+  fi
+  [[ -f "$r/e2e.log" ]] && cp "$r/e2e.log" "$stage/e2e.log"
+
+  name="$(date +%Y%m%d-%H%M%S)-${sha:0:8}"
+  parent="${ARTIFACT_REMOTE%/}/$key"
+  if ! rclone --config "$conf" copy "$stage" "$parent/$name" >&2; then
+    rm -f "$conf"; rm -rf "$stage"
+    log "上傳到 $parent/$name 失敗"
+    return 1
+  fi
+  id="$(rclone --config "$conf" lsjson "$parent" --dirs-only 2>/dev/null | jq -r --arg n "$name" '.[] | select(.Name == $n) | .ID' 2>/dev/null || true)"
+  rm -f "$conf"; rm -rf "$stage"
+  if [[ -n "$id" ]]; then
+    printf 'https://drive.google.com/drive/folders/%s\n' "$id"
+  else
+    printf '%s\n' "$parent/$name"
+  fi
+}
+
 # 把測試結果寫到 Jira：上傳截圖與報告，新增留言。
 # 用法：publish_result <單號> <通過時的標題> <失敗時的標題> [留言最後要加的一段話] [通過時給人看的摘要]
 # 留言的第一行是標記，接著是給人看的摘要，分隔線之後才是細節。
@@ -198,19 +239,28 @@ publish_result() {
     total=$(( passed + failed + flaky ))
   fi
 
-  # 截圖最多 60 張，檔名加上所在資料夾，避免全部同名
+  # 截圖與測試報告：有設定雲端硬碟時上傳到那裡，Jira 只放連結；沒有設定或上傳失敗時，
+  # 只在通過時把截圖附到 Jira（給人審查畫面用）。測試報告一律不附到 Jira，它保存在 Jenkins 的建置產出物。
+  local storage_line="" drive_url=""
   if [[ -d "$r/test-results" ]]; then
-    while IFS= read -r -d '' f; do
-      name="$(basename "$(dirname "$f")")-$(basename "$f")"
-      if jira_attach "$key" "$f" "$name"; then shots=$(( shots + 1 )); fi
-    done < <(find "$r/test-results" -name '*.png' -print0 | sort -z | head -z -n 60)
+    shots="$(find "$r/test-results" -name '*.png' | wc -l)"
   fi
-  if [[ -d "$r/playwright-report" ]]; then
-    tar -czf "$r/playwright-report.tar.gz" -C "$r" playwright-report
-    jira_attach "$key" "$r/playwright-report.tar.gz" "playwright-report-${sha:0:8}.tar.gz" || true
-  fi
-  if [[ -n "$reason" && -n "$rlog" && -s "$rlog" ]]; then
-    jira_attach "$key" "$rlog" "$(basename "$rlog" | sed 's/\.[a-z]*$//')-${sha:0:8}.log" || true
+  if drive_url="$(upload_artifacts "$key" "$r" "$sha")" && [[ -n "$drive_url" ]]; then
+    storage_line="截圖與測試報告：$drive_url（截圖 $shots 張）"
+  else
+    local attached=0
+    if [[ -z "$reason" && -d "$r/test-results" ]]; then
+      while IFS= read -r -d '' f; do
+        name="$(basename "$(dirname "$f")")-$(basename "$f")"
+        if jira_attach "$key" "$f" "$name"; then attached=$(( attached + 1 )); fi
+      done < <(find "$r/test-results" -name '*.png' -print0 | sort -z | head -z -n 60)
+      storage_line="截圖：已附加 $attached 張。完整的測試報告在 Jenkins 的建置產出物"
+    else
+      storage_line="截圖與測試報告：保存在 Jenkins 的建置產出物（共 $shots 張截圖）"
+    fi
+    if [[ -n "${ARTIFACT_REMOTE:-}" ]]; then
+      storage_line+="（上傳到雲端硬碟失敗，請看 Jenkins 的記錄）"
+    fi
   fi
 
   # 給人看的摘要
@@ -236,7 +286,7 @@ publish_result() {
 Jenkins：${BUILD_URL:-（本機執行）}
 
 自動化測試：通過 $passed、失敗 $failed、不穩定 $flaky、略過 $skipped
-截圖：已附加 $shots 張"
+$storage_line"
   if [[ -n "$reason" ]]; then
     text+="
 

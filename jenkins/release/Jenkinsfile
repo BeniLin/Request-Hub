@@ -30,6 +30,7 @@ pipeline {
           env.DEPLOY_BRANCH_PARAM = params.DEPLOY_BRANCH_PARAM ?: 'BRANCH'
           env.MAX_TICKETS = params.MAX_TICKETS ?: '5'
           if (params.E2E_IMAGE) { env.E2E_IMAGE = params.E2E_IMAGE }
+          if (params.ARTIFACT_REMOTE) { env.ARTIFACT_REMOTE = params.ARTIFACT_REMOTE }
         }
       }
     }
@@ -42,6 +43,9 @@ pipeline {
           ]
           if (params.E2E_ENV_CRED) {
             creds << file(credentialsId: params.E2E_ENV_CRED, variable: 'E2E_ENV_FILE')
+          }
+          if (params.ARTIFACT_REMOTE && params.RCLONE_CONF_CRED) {
+            creds << file(credentialsId: params.RCLONE_CONF_CRED, variable: 'RCLONE_CONFIG_FILE')
           }
           withCredentials(creds) {
             if (params.MODE == 'merge') {

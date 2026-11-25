@@ -145,11 +145,39 @@ Docker 只用來在 Jenkins 上執行 Playwright（測試程式），不會用�
 | `RESTORE_BRANCH` | 否 | 驗證結束後要部署回去的分支。借用其他環境時使用 |
 | `MAX_TICKETS` | 否 | 每次最多處理幾張，預設 `2` |
 | `E2E_IMAGE` | 否 | 執行 Playwright 的 image，預設 `mcr.microsoft.com/playwright:v1.49.1-noble` |
+| `ARTIFACT_REMOTE` | 否 | 截圖與測試報告要上傳到的雲端硬碟位置，例如 `gdrive:AutoDeveloper/ZHC`。見「截圖與測試報告放在哪裡」 |
+| `RCLONE_CONF_CRED` | 否 | rclone 設定檔的憑證 ID，與 `ARTIFACT_REMOTE` 一起設定 |
 
 ### 測試方法
 
 1. 沒有 E 的單時手動執行一次。預期：顯示「本次無待驗證的單」，幾秒內結束。這代表 Jira 連線、憑證、參數都正確
 2. 有單子進到 E 之後執行。預期：部署 Job 被觸發一次；Jira 單出現留言與截圖附件，狀態變為 F 或 C；Jenkins 建置頁面保存了 `work/reports/<單號>/` 的完整記錄
+
+### 截圖與測試報告放在哪裡
+
+每次驗證會產生數十張截圖與一份測試報告（約 30 MB）。Jira 的附件空間有限，所以：
+
+- **測試報告一律不附到 Jira**。Jenkins 的建置頁面「建置產出物」裡有完整的一份
+- **沒有設定雲端硬碟時**：只有驗證通過時把截圖附到 Jira，給人審查畫面用；失敗時不附
+- **有設定雲端硬碟時**：截圖、測試報告、測試記錄都上傳到雲端硬碟，Jira 留言只放資料夾的連結，不附任何檔案。上傳失敗時會退回上一種做法，並在留言中註明
+
+#### 設定上傳到 Google Drive
+
+使用 [rclone](https://rclone.org/) 上傳。授權只需要做一次。
+
+1. **在 Jenkins 安裝 rclone**。Jenkins 跑在容器裡的話：`docker exec -u root <Jenkins 容器> sh -c 'apt-get update && apt-get install -y rclone'`。容器重建後要重新安裝
+2. **在自己的電腦上產生設定檔**（需要瀏覽器，所以不在伺服器上做）：
+   - 安裝 rclone（Windows：`winget install Rclone.Rclone`）
+   - 執行 `rclone config` → `n` 新增 → 名稱填 `gdrive` → 類型選 `drive`（Google Drive）→ client_id 與 client_secret 直接按 Enter
+   - scope 選 **`drive.file`**。這個權限只能存取 rclone 自己建立的檔案，看不到雲端硬碟裡其他的東西
+   - 其餘選項按 Enter 使用預設值，「Use auto config」選 `y`，瀏覽器會開啟 Google 的授權頁
+   - 完成後執行 `rclone config file`，它會顯示設定檔的位置
+3. **把設定檔存成 Jenkins 憑證**：類型 Secret file，上傳那個設定檔，ID 例如 `gdrive-rclone`。這個檔案等同於雲端硬碟的鑰匙，不要放進 Git
+4. **在 Job 加兩個參數**：`ARTIFACT_REMOTE` 填 `gdrive:AutoDeveloper/<專案 Key>`，`RCLONE_CONF_CRED` 填憑證 ID
+
+上傳後的位置是 `<ARTIFACT_REMOTE>/<單號>/<日期時間>-<commit>/`，裡面有 `screenshots/`、`playwright-report.tar.gz`、`e2e.log`。
+
+資料夾不會公開分享，Jira 上的連結只有登入擁有這個雲端硬碟的 Google 帳號才打得開。要讓其他人看，在 Google Drive 上把最上層的資料夾分享給他們即可。
 
 ---
 
@@ -174,7 +202,6 @@ Docker 只用來在 Jenkins 上執行 Playwright（測試程式），不會用�
 4. 把基準分支合併進發版分支，標記版號，一起推上去
 5. 有設定 `RELEASE_DEPLOY_JOB`：呼叫它部署發版分支，**部署成功單子才轉 J**。部署失敗時單子維持在 I，排除問題後重新執行 `release` 即可，不會重複建立版號
 6. 沒有設定 `RELEASE_DEPLOY_JOB`：單子直接轉 J，留言提醒自行部署
-7. 單子轉 J 時，在 Jira 專案建立同名的版本（標記為已發行），並填進每張單的「修正版本」欄位。單子的畫面上要有這個欄位。這一步失敗不影響發版，版號仍會寫在留言裡
 
 兩個動作分開，是為了讓多張單合併之後，有機會先確認整合的結果，再決定要不要發版。
 
@@ -201,7 +228,7 @@ type: feature
 | `JIRA_BASE_URL`、`PROJECT_KEY`、`PROJECT_REPO`、`BASE_BRANCH` | 是 | 同步驟 8 |
 | `RELEASE_BRANCH` | 是 | 發版分支，例如 `main` |
 | `DEPLOY_JOB`、`E2E_BASE_URL` | 合併時必填 | 同步驟 8，用來重新測試 |
-| `DEPLOY_BRANCH_PARAM`、`E2E_ENV_CRED`、`E2E_IMAGE` | 否 | 同步驟 8 |
+| `DEPLOY_BRANCH_PARAM`、`E2E_ENV_CRED`、`E2E_IMAGE`、`ARTIFACT_REMOTE`、`RCLONE_CONF_CRED` | 否 | 同步驟 8 |
 | `BASE_DEPLOY_JOB` | 否 | 合併完成後，用來部署基準分支的 Job |
 | `RELEASE_DEPLOY_JOB` | 否 | 發版時，用來部署發版分支的 Job。不填就由人自行部署 |
 | `MAX_TICKETS` | 否 | 每次合併最多處理幾張，預設 `5` |
