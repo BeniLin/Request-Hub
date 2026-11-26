@@ -56,7 +56,19 @@ project in (<涉及的專案KEY>) AND statusCategory != Done AND text ~ "<關鍵
 
 **不要轉換狀態。** 新建的主單會自動是 `A 待撰寫規格`。建立後檢查主單狀態，如果不是 `A 待撰寫規格`，告訴使用者並請他通知 Jira 管理員檢查 workflow，不要自己去轉換。
 
-### 5. 回報結果
+### 5. 上傳附件
+
+使用者提供的檔案（範例 PDF、Excel、截圖等）建單後一律上傳到 Google Drive：
+
+    rclone copyto "<本機檔案>" "gdrive:jenkins-artifacts/<單號>/需求附件/<檔名>"
+
+- `jenkins-artifacts` 在 Google Drive 根目錄，已經分享給 Jenkins，自動化步驟會從這裡讀
+- 一律用本機的 rclone（remote 名稱 `gdrive:`），不要用 Google Drive 連接器（帳號不同，也沒有寫入權限）
+- 不要建立分享連結（不要執行 `rclone link`）
+- 需求裡有 Excel 上傳功能，但使用者沒有提供範例檔時，可以依現有資料轉錄一份範例，檔名註明「範例」
+- 上傳後用 `rclone lsl` 確認檔案都在，並在 Jira 單上新增備註，列出資料夾路徑與檔名
+
+### 6. 回報結果
 
 列出所有建立的單號與連結，並提醒：「單子已進入 A 狀態，自動化流程會接手撰寫規格，完成後會進入 B 狀態等待確認。」
 
