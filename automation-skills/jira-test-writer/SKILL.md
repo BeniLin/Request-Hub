@@ -98,7 +98,7 @@ ORDER BY priority DESC, created ASC
 2. 相關的規則，用來理解 Test Case 的前提與用詞
 3. `projects/<KEY>.md` 中關於測試的說明（如果有）
 
-如果規格文件中的「待確認事項」段落還有內容，代表規格尚未定案：不要撰寫測試，依 2.9 回報問題並轉到 STATUS_PROBLEM。
+如果規格文件中的「待確認事項」段落還有內容，代表規格尚未定案：不要撰寫測試，依 2.9 回報問題並轉到 STATUS_PROBLEM。「已採用的假設」段落不算待確認事項：那些做法已經寫進規則並由人確認過，照常撰寫測試。
 
 **規格變更後重來**時，找出上一次修改 `<TEST_DIR>/<單號>/` 的 commit，用 `git diff <該 commit>..HEAD -- specs/` 找出哪些 Test Case 被新增、修改或刪除，只處理這些。沒有變動的 Test Case 所對應的測試不要動。
 
